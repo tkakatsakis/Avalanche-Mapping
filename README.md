@@ -3,6 +3,9 @@ Thomas Kakatsakis
 
 A web visualization of every recorded avalanche fatality in Washington state history, and every recorded avalanche fatality in the United States and Canada during the 2020-2021 Winter (as of March 10th)
 
+The site can be viewed at https://tkakatsakis.github.io/Avalanche-Mapping/
+![Screenshot](img2.png)
+
 The project has the goal of spreading awareness of the dangers of backcountry Winter recreation, and helping people to better understand the circumstances leading to tragic accidents.
 
 Data is sourced from the Northwest Avalanche Center, The Colorado Avalanche Information Center, and Avalanche Canada. It is compiled by Thomas Kakatsakis
