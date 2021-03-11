@@ -1,16 +1,14 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link href="css/bootstrap.min.css" rel="stylesheet">
-  <title>Cell Towers in Washington (2010)</title>
+  <title>Washington Fatalities</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" />
+
   <style>
-    /* how to make a div take the remaining height
-  https://www.whitebyte.info/programming/css/how-to-make-a-div-take-the-remaining-height */
     html,
     body,
     main {
@@ -21,6 +19,39 @@
       background: #fff;
       display: flex;
       flex-flow: column;
+    }
+
+    .legend {
+        line-height: 16px;
+        width: 200px;
+        color: #333333;
+        font-family: 'Arial', ;
+        padding: 6px 8px;
+        background: white;
+        background: rgba(255,255,255,0.5);
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        border-radius: 5px;
+    }
+
+    .legend i {
+        width: 20px;
+        height: 16px;
+        float: left;
+        margin-right: 8px;
+        opacity: 0.9;
+    }
+
+    .legend img {
+        width: 20px;
+        height: 16px;
+        margin-right: 3px;
+        float: left;
+    }
+
+    .legend p {
+        font-size: 12px;
+        line-height: 16px;
+        margin: 0;
     }
 
     #map {
@@ -63,90 +94,79 @@
     <div id="map"></div>
   </main>
   <script>
-    // 1. Create a map object.
-    var mymap = L.map('map', {
-      center: [47.7511, -120.7401],
-      zoom: 7,
-      maxZoom: 10,
-      minZoom: 3,
-      detectRetina: true
-    });
 
-    // 2. Add a base map.
-    L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png').addTo(mymap);
+    var map = L.map('map', {
+      maxZoom: 15,
+      minZoom: 1
+    }).setView([47.652639, -121.467630], 7);
 
-    // Empty county variable to store county information and circle variable to store
-    // all circle information on the map
-    var counties = null;
-    var circles = new L.featureGroup();
 
-    // 3. Creates a color scale from colorbrewer (chroma.js) - 'YlOrRd' - for the
-    // counts of cell towers on the map.
-    var colors = chroma.scale('YlOrRd').colors(5);
+  // Basemap imports
+    var openstreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var grayscale = L.tileLayer('http://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png');
+    var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}@2x');
 
-    // 4. setColor function that takes in the density (count of cell towers per county)
-    // and assigns a color in accordance to the color scale - 'YlOrRd'
-    function setColor(density) {
-      var id = 0;
-      if (density > 18) {
-        id = 4;
-      } else if (density > 11 && density <= 18) {
-        id = 3;
-      } else if (density > 9 && density <= 11) {
-        id = 2;
-      } else if (density > 5 && density <= 9) {
-        id = 1;
-      } else {
-        id = 0;
-      }
-      return colors[id];
+    // Basemap vars
+    var baseLayers = {
+      'OpenStreetMap': openstreet,
+      'Grayscale': grayscale,
+      'Satellite': satellite
+    };
+
+    var overlays = {}
+
+    var wa_avy = null;
+
+    var colors = chroma.scale('Dark2').mode('lch').colors(4);
+
+    for (i = 0; i < 4; i++) {
+      $('head').append($("<style> .marker-color-" + (i + 1).toString() + " { color: " + colors[i] + "; font-size: 15px; text-shadow: 0 0 3px #ffffff;} </style>"));
     }
 
-    // 5. Takes in the wacountydata.geojson to attribute information onto counties,
-    // and build circles to represent the number of cell towers in each Washington
-    // county.
-    Promise.all([
-      d3.json("assets/wacountydata.geojson")
-    ]).then(function(datasets) {
+    var txt = 'link';
 
-      // Stores county boundary information provided from the geojson file and
-      // create settings for display onto the map
-      counties = new L.geoJSON(datasets[0], {
-        style: function(feature) {
-          return {
-            stroke: true,
-            weight: 2,
-            fillOpacity: 0.1,
-            opacity: 0.2,
-            color: 'gray'
-          };
-        },
-        // For each circle, center each onto the center of the county, create a proportional size
-        // for the radius of each circle, and set each circle's color accordingly
-        onEachFeature: function(feature, layer) {
-          var circle = L.circle(Object.values(L.polygon(feature.geometry.coordinates).getBounds().getCenter()).reverse(), {
-            radius: 900 * Math.pow(feature.properties.CTNUM, 1),
-            stroke: true,
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.9,
-            color: 'white',
-            fillColor: setColor(feature.properties.CTNUM)
-          });
-          // Add all circles to the circle feature variable and a pop-up when the mouse hovers onto a specific circle.
-          // Uses the tooltip function provided by d3.js.
-          circle.addTo(circles);
-          circle.bindTooltip("# of Cell Towers in " + feature.properties.NAME + ": " + feature.properties.CTNUM, {
-            sticky: true
-          });
-        }
-      });
+    wa_avy = L.geoJson.ajax("data/Avalanche_WA.geojson", {
+       onEachFeature: function (feature, layer) {
+         layer.bindPopup(
+           "Date: " + feature.properties.DATE + "<br>" +
+           "Location Description: " + feature.properties.LOCATION + "<br>" +
+           "Number of Deaths: " + feature.properties.DEATHS + "<br>" +
+           "Link to Accident Report: " + txt.link(feature.properties.WEBLINK)
+           );
+        return feature.properties.ACTIVITY;
+    },
+    pointToLayer: function (feature, latlng) {
+              var id = 0;
+              if (feature.properties.ACTIVITY == 1) { id = 0; }
+              else if (feature.properties.ACTIVITY == 2)  { id = 1; }
+              else if (feature.properties.ACTIVITY == 3)  { id = 2; }
+              else  { id = 3; }
+              return L.marker(latlng, {icon: L.divIcon({className: 'fa fa-map-marker marker-color-' + (id + 1).toString() })});
+    },
+      attribution: 'Made by Thomas Kakatsakis'
+    }).addTo(map);
 
-      // 6. Adds circles and county information onto map.
-      circles.addTo(mymap);
-      counties.addTo(mymap);
-      counties.bringToBack();
+    var legend = L.control({
+      position: 'bottomright'
     });
+
+    legend.onAdd = function() {
+
+      var div = L.DomUtil.create('div', 'legend');
+      div.innerHTML += '<b>Incident Activity<b><br />';
+      div.innerHTML += '<i class="fa fa-map-marker marker-color-1"></i><p> Skiing / Snowboarding </p>';
+      div.innerHTML += '<i class="fa fa-map-marker marker-color-2"></i><p> Snowmobiling / Motorized </p>';
+      div.innerHTML += '<i class="fa fa-map-marker marker-color-3"></i><p> Hiking / Climbing </p>';
+      div.innerHTML += '<i class="fa fa-map-marker marker-color-4"></i><p> Other </p>';
+      return div;
+    };
+
+    legend.addTo(map);
+
+    L.control.layers(baseLayers, overlays, {
+      collapsed: false,
+      position: 'bottomleft'
+    }).addTo(map);
   </script>
 </body>
 
